@@ -1,5 +1,6 @@
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
+import { getReceiverSocketId, io } from "../socket/socket.js";
 
 export const sendMessage = async(req,res)=>{
     try {
@@ -26,16 +27,23 @@ export const sendMessage = async(req,res)=>{
         if(newMessage){
             conversation.messages.push(newMessage._id);
         }
-
-        // SOCKET IO FUNCTIONALITY WILL GO HERE
-
+        
         // await conversation.save(); 1s
         // await newMessage.save(); need to wait 1s to run
-
+        
         // this will run in parallel, thus is more optimized
         await Promise.all([conversation.save(),newMessage.save()]); // will run in exact same time
+        
+        // SOCKET IO FUNCTIONALITY WILL GO HERE
+        const receiverSocketId = getReceiverSocketId(ReceiverId);
+        if(receiverSocketId){
+            // only want to send the event to one user / specific client that is why we use io.to
+            // it.to(<socket_id>).emit()
+            // "newMessage" = event name
+            io.to(receiverSocketId).emit("newMessage",newMessage);
+        }
+        
         res.status(201).json(newMessage);
-
     } catch (error) {
         console.log("Error in sendMessage controller: ", error.message);
         res.status(500).json({error : "Internal Server Error"});
